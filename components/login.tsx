@@ -21,7 +21,7 @@ export default function Login() {
       Alert.alert('Error', 'Enter valid 10-digit number');
       return;
     }
-    setShowPopup(true);
+navigation.navigate('HomePage');
   };
 
   return (
@@ -37,20 +37,17 @@ export default function Login() {
         onChangeText={setPhone}
       />
 
+
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.btnText}>Login</Text>
       </TouchableOpacity>
+      <View style={styles.signupRow}>
+        <Text style={styles.smallText}>Don't have an account? </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+          <Text style={styles.linkText}>Sign up</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Bank Popup */}
-      {showPopup && (
-        <BankPopup
-          onSelect={() => {
-            setShowPopup(false);
-            navigation.navigate('SignUp');
-          }}
-          onClose={() => setShowPopup(false)}
-        />
-      )}
     </View>
   );
 }
@@ -61,4 +58,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, padding: 12, marginBottom: 20 },
   button: { backgroundColor: '#007bff', padding: 15 },
   btnText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
+  signupRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12 },
+  smallText: { color: '#444' },
+  linkText: { color: '#007bff', textDecorationLine: 'underline' },
 });
