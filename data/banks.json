@@ -1,0 +1,11 @@
+[
+  { "id": 1, "bankname": "HDFC Bank" },
+  { "id": 2, "bankname": "ICICI Bank" },
+  { "id": 3, "bankname": "State Bank of India" },
+  { "id": 4, "bankname": "Axis Bank" },
+  { "id": 5, "bankname": "Kotak Bank" },
+  { "id": 6, "bankname": "Punjab National Bank" },
+  { "id": 7, "bankname": "Bank of Baroda" },
+  { "id": 8, "bankname": "Union Bank" },
+  { "id": 9, "bankname": "Yes Bank" }
+]
