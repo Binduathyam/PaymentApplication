@@ -8,14 +8,40 @@ import {
   StyleSheet,
 } from 'react-native';
 
-import banks from './data/banks.json';
+import banks from '../data/banks.json';
+
+type BankItem = { id: number; bankname: string };
 
 type Props = {
-  onSelect: () => void;
+  onSelect: (bank: BankItem & { icon: any }) => void;
   onClose: () => void;
 };
 
 export default function BankPopup({ onSelect, onClose }: Props) {
+  const getBankIcon = (id: number) => {
+    switch (id) {
+      case 1:
+        return require('../assets/banks/hdfc.png');
+      case 2:
+        return require('../assets/banks/icici.png');
+      case 3:
+        return require('../assets/banks/sbi.png');
+      case 4:
+        return require('../assets/banks/axis.png');
+      case 5:
+        return require('../assets/banks/kotak.png');
+      case 6:
+        return require('../assets/banks/pnb.png');
+      case 7:
+        return require('../assets/banks/bob.png');
+      case 8:
+        return require('../assets/banks/union.png');
+      case 9:
+        return require('../assets/banks/yes.png');
+      default:
+        return null;
+    }
+  };
   return (
     <View style={styles.overlay}>
       <View style={styles.popup}>
@@ -26,10 +52,11 @@ export default function BankPopup({ onSelect, onClose }: Props) {
           numColumns={3}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.box} onPress={onSelect}>
-              <Image
-                style={styles.icon}
-              />
+            <TouchableOpacity
+              style={styles.box}
+              onPress={() => onSelect({ ...item, icon: getBankIcon(item.id) })}
+            >
+              <Image style={styles.icon} source={getBankIcon(item.id)} />
               <Text style={styles.name}>{item.bankname}</Text>
             </TouchableOpacity>
           )}

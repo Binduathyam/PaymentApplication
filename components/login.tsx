@@ -46,7 +46,7 @@ export default function Login() {
         <BankPopup
           onSelect={() => {
             setShowPopup(false);
-            navigation.navigate('History');
+            navigation.navigate('SignUp');
           }}
           onClose={() => setShowPopup(false)}
         />
