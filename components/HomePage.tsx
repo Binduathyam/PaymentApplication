@@ -50,7 +50,8 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#333',
         marginBottom: 30,
-    },
+        textAlign: 'center', 
+            },
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',

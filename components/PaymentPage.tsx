@@ -1,196 +1,183 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-
-View,
-Text,
-FlatList,
-TextInput,
-TouchableOpacity,
-StyleSheet,
-SafeAreaView,
-Alert,
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  Keyboard,
+  Animated,
 } from 'react-native';
 
 interface Transaction {
-id: number;
-userId: string;
-username: string;
-sendto: string;
-sendtoemail: string;
-amount: number;
-status: string;
-type: 'sent' | 'received';
-createdAt: string;
+  id: number;
+  amount: number;
+  type: 'sent' | 'received';
+  createdAt: string;
 }
 
-interface PaymentPageProps {
-route?: {
-    params?: {
-        contactName: string;
-        transactions: Transaction[];
+const PaymentPage = ({ route, navigation }: any) => {
+  const [amount, setAmount] = useState('');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  const contactName = route?.params?.contactName ?? 'Contact';
+
+  // ✅ SET HEADER TITLE (same font & arrow style)
+  useEffect(() => {
+    navigation.setOptions({
+      title: contactName,
+    });
+  }, [navigation, contactName]);
+
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      Animated.timing(keyboardOffset, {
+        toValue: e.endCoordinates.height + 20,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      show.remove();
+      hide.remove();
     };
-};
-}
+  }, []);
 
-const PaymentPage: React.FC<PaymentPageProps> = ({ route }) => {
-const [amount, setAmount] = useState('');
-const [transactions, setTransactions] = useState<Transaction[]>(
-    route?.params?.transactions || []
-);
-const contactName = route?.params?.contactName || 'Contact';
-
-const handleSendAmount = useCallback(() => {
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-        Alert.alert('Invalid Amount', 'Please enter an amount greater than 0');
-        return;
+  const handleSendAmount = useCallback(() => {
+    const num = parseFloat(amount);
+    if (isNaN(num) || num <= 0) {
+      Alert.alert('Invalid Amount');
+      return;
     }
 
-    const newTransaction: Transaction = {
-        id: transactions.length + 1,
-        userId: 'current_user',
-        username: 'You',
-        sendto: contactName,
-        sendtoemail: '',
-        amount: numAmount,
-        status: 'success',
+    setTransactions(prev => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        amount: num,
         type: 'sent',
         createdAt: new Date().toISOString(),
-    };
+      },
+    ]);
 
-    setTransactions([...transactions, newTransaction]);
     setAmount('');
-    Alert.alert('Success', `Amount ₹${numAmount} sent to ${contactName}`);
-}, [amount, transactions, contactName]);
+    Keyboard.dismiss();
+  }, [amount]);
 
-const renderTransaction = ({ item }: { item: Transaction }) => (
-    <View
-        style={[
-            styles.transactionBox,
-            item.type === 'sent' ? styles.sentBox : styles.receivedBox,
-        ]}
-    >
-        <View>
-            <Text style={styles.amountText}>₹{item.amount.toFixed(2)}</Text>
-            <Text style={styles.dateText}>
-                {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
-        </View>
-    </View>
-);
-
-return (
+  return (
     <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-            <Text style={styles.headerText}>{contactName}</Text>
-        </View>
 
-        <FlatList
-            data={transactions}
-            renderItem={renderTransaction}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContainer}
+      <FlatList
+        data={transactions}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
+        renderItem={({ item }) => (
+          <View style={styles.transaction}>
+            <Text style={styles.amount}>₹{item.amount}</Text>
+            <Text style={styles.date}>
+              {new Date(item.createdAt).toLocaleString()}
+            </Text>
+          </View>
+        )}
+      />
+
+      {/* INPUT BAR */}
+      <Animated.View
+        style={[
+          styles.inputBar,
+          { transform: [{ translateY: Animated.multiply(keyboardOffset, -1) }] },
+        ]}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder="Enter amount"
+          keyboardType="decimal-pad"
+          value={amount}
+          onChangeText={setAmount}
         />
 
-        <View style={styles.inputContainer}>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter amount"
-                placeholderTextColor="#999"
-                keyboardType="decimal-pad"
-                value={amount}
-                onChangeText={setAmount}
-            />
-            <TouchableOpacity
-                style={[
-                    styles.sendButton,
-                    !amount || parseFloat(amount) <= 0 ? styles.disabledButton : {},
-                ]}
-                onPress={handleSendAmount}
-                disabled={!amount || parseFloat(amount) <= 0}
-            >
-                <Text style={styles.sendButtonText}>Send</Text>
-            </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.payBtn} onPress={handleSendAmount}>
+          <Text style={styles.payText}>Pay</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
     </SafeAreaView>
-);
+  );
 };
 
+export default PaymentPage;
+
 const styles = StyleSheet.create({
-container: {
+  container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-},
-header: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-},
-headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-},
-listContainer: {
-    padding: 16,
-},
-transactionBox: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    minWidth: '60%',
-},
-sentBox: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#e8f5e9',
-},
-receivedBox: {
+  },
+
+  transaction: {
     alignSelf: 'flex-end',
-    backgroundColor: '#e3f2fd',
-},
-amountText: {
+    backgroundColor: '#e8f5e9',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    maxWidth: '70%',
+  },
+
+  amount: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-},
-dateText: {
+    fontWeight: '700',
+  },
+
+  date: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
-},
-inputContainer: {
+  },
+
+  inputBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    padding: 16,
+    padding: 12,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-},
-input: {
+    borderColor: '#ddd',
+  },
+
+  input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#ccc',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
     marginRight: 8,
-    fontSize: 14,
-},
-sendButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
+  },
+
+  payBtn: {
+    backgroundColor: '#0B5ED7',
+    paddingHorizontal: 28,
     borderRadius: 8,
     justifyContent: 'center',
-    alignItems: 'center',
-},
-disabledButton: {
-    opacity: 0.5,
-},
-sendButtonText: {
+  },
+
+  payText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
-},
+    fontSize: 15,
+  },
 });
-
-export default PaymentPage;

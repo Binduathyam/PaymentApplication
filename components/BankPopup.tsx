@@ -6,6 +6,8 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 
 import banks from '../data/banks.json';
@@ -42,52 +44,83 @@ export default function BankPopup({ onSelect, onClose }: Props) {
         return null;
     }
   };
+
   return (
-    <View style={styles.overlay}>
-      <View style={styles.popup}>
-        <Text style={styles.title}>Select Bank</Text>
+    <Modal
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}   // ✅ Android BACK button
+    >
+      {/* BACKDROP */}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.overlay}>
+          {/* STOP PROPAGATION */}
+          <TouchableWithoutFeedback>
+            <View style={styles.popup}>
+              <Text style={styles.title}>Select Bank</Text>
 
-        <FlatList
-          data={banks}
-          numColumns={3}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.box}
-              onPress={() => onSelect({ ...item, icon: getBankIcon(item.id) })}
-            >
-              <Image style={styles.icon} source={getBankIcon(item.id)} />
-              <Text style={styles.name}>{item.bankname}</Text>
-            </TouchableOpacity>
-          )}
-        />
-
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-          <Text style={{ color: '#fff' }}>Close</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+              <FlatList
+                data={banks}
+                numColumns={3}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.box}
+                    onPress={() =>
+                      onSelect({ ...item, icon: getBankIcon(item.id) })
+                    }
+                  >
+                    <Image
+                      style={styles.icon}
+                      source={getBankIcon(item.id)}
+                    />
+                    <Text style={styles.name}>{item.bankname}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  popup: { width: '90%', backgroundColor: '#fff', padding: 15 },
-  title: { textAlign: 'center', fontSize: 18, marginBottom: 10 },
-  box: {
-    flex: 1, margin: 5, padding: 10,
-    alignItems: 'center', backgroundColor: '#eee',
+  popup: {
+    width: '90%',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
   },
-  icon: { width: 40, height: 40, resizeMode: 'contain' },
-  name: { fontSize: 11, marginTop: 5, textAlign: 'center' },
-  closeBtn: {
-    marginTop: 10, backgroundColor: '#007bff',
-    padding: 10, alignItems: 'center',
+  title: {
+    textAlign: 'center',
+    fontSize: 18,
+    marginBottom: 10,
+    fontWeight: 'bold',
+  },
+  box: {
+    flex: 1,
+    margin: 5,
+    padding: 10,
+    alignItems: 'center',
+    backgroundColor: '#f2f2f2',
+    borderRadius: 8,
+  },
+  icon: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+  name: {
+    fontSize: 11,
+    marginTop: 5,
+    textAlign: 'center',
   },
 });

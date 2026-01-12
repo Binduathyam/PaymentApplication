@@ -15,22 +15,36 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-
-
-    
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={Login} />
-                <Stack.Screen name="SignUp" component={SignUp} />
-                          <Stack.Screen name="HomePage" component={HomePage} />
-                          <Stack.Screen name="TransactionHistory" component={TransactionHistoryPage} />
-                          <Stack.Screen name="profilePage" component={ProfilePage} />
-                          <Stack.Screen name="Balance" component={BalancePage} />
-                          <Stack.Screen name="listOfContacts" component={ListOfContacts} />
-                          <Stack.Screen name="PaymentPage" component={PaymentPage} />
 
+        <Stack.Screen
+          name="Login"
+          component={Login}
+          options={{ headerShown: false }}
+        />
 
-      
+        <Stack.Screen name="SignUp" component={SignUp} options={{ title: '' }} />
+        <Stack.Screen name="HomePage" component={HomePage} options={{ title: '' }} />
+        <Stack.Screen name="TransactionHistory" component={TransactionHistoryPage} options={{ title: '' }} />
+        <Stack.Screen name="profilePage" component={ProfilePage} options={{ title: '' }} />
+        <Stack.Screen name="Balance" component={BalancePage} options={{ title: '' }} />
+        <Stack.Screen name="listOfContacts" component={ListOfContacts} options={{ title: '' }} />
+
+        {/* ✅ PAYMENT PAGE HEADER FIX */}
+        <Stack.Screen
+          name="PaymentPage"
+          component={PaymentPage}
+          options={{
+            headerTitleAlign: 'left',
+            headerBackTitleVisible: false,
+            headerTitleStyle: {
+              fontSize: 18,
+              fontWeight: '600',
+            },
+          }}
+        />
+
       </Stack.Navigator>
     </NavigationContainer>
   );
