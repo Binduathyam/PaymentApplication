@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Alert,
   Keyboard,
   Animated,
+  Alert,
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface Transaction {
   id: number;
   amount: number;
-  type: 'sent' | 'received';
+  type: 'sent';
   createdAt: string;
 }
 
@@ -24,15 +27,20 @@ const PaymentPage = ({ route, navigation }: any) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const contactName = route?.params?.contactName ?? 'Contact';
+  const receiverPhone = route?.params?.mobile;
+  const senderPhone = route?.params?.phone;
 
-  // ✅ SET HEADER TITLE (same font & arrow style)
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const timeoutRef = useRef<any>(null);
+  const activeRef = useRef(true);
+
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     navigation.setOptions({
       title: contactName,
     });
   }, [navigation, contactName]);
-
-  const keyboardOffset = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', e => {
@@ -57,30 +65,188 @@ const PaymentPage = ({ route, navigation }: any) => {
     };
   }, []);
 
-  const handleSendAmount = useCallback(() => {
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0) {
-      Alert.alert('Invalid Amount');
+  useFocusEffect(
+    React.useCallback(() => {
+      activeRef.current = true;
+
+      const delay = setTimeout(() => {
+        Speech.speak(
+          `Payment screen. Say amount to send to ${contactName}. Or say back.`,
+          { onDone: startListening }
+        );
+      }, 300);
+
+      return () => stopAll();
+    }, [])
+  );
+
+  const startListening = async () => {
+    if (!activeRef.current) return;
+
+    const permission = await Audio.requestPermissionsAsync();
+    if (!permission.granted) return;
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: true,
+    });
+
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+
+    recordingRef.current = recording;
+
+    timeoutRef.current = setTimeout(() => {
+      stopRecording();
+    }, 5000);
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+
+    clearTimeout(timeoutRef.current);
+
+    await recordingRef.current.stopAndUnloadAsync();
+    const uri = recordingRef.current.getURI();
+    recordingRef.current = null;
+
+    if (uri) sendToBackend(uri);
+  };
+
+  const sendToBackend = async (uri: string) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", {
+        uri,
+        name: "speech.m4a",
+        type: "audio/m4a",
+      } as any);
+
+      const res = await fetch("http://172.23.4.188:5000/stt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.status === "success") {
+        handleVoice(data.text);
+      } else {
+        retry();
+      }
+
+    } catch {
+      retry();
+    }
+  };
+
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const handleVoice = (rawVoice: string) => {
+    const voice = normalizeText(rawVoice);
+
+    if (voice.includes("back")) {
+      Speech.speak("Going back");
+      Alert.alert("Navigation", "Going back to previous screen", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
       return;
     }
 
-    setTransactions(prev => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        amount: num,
-        type: 'sent',
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    const digits = voice.replace(/\D/g, '');
 
-    setAmount('');
-    Keyboard.dismiss();
-  }, [amount]);
+    if (digits) {
+      const number = parseFloat(digits);
+      setAmount(digits);
+
+      Speech.speak(`Sending ${digits} rupees`, {
+        onDone: () => handleSendAmount(number),
+      });
+
+      return;
+    }
+
+    retry();
+  };
+
+  const handleSendAmount = async (num: number) => {
+    if (isNaN(num) || num <= 0) {
+      Speech.speak("Invalid amount");
+      Alert.alert("Invalid Amount", "Please enter a valid amount.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://172.23.4.188:5000/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender_phone: senderPhone,
+          receiver_phone: receiverPhone,
+          amount: num,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        Speech.speak("Payment successful");
+        Alert.alert("Success", "Payment completed successfully!");
+
+        setTransactions(prev => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            amount: num,
+            type: 'sent',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+
+        setAmount('');
+        Keyboard.dismiss();
+
+      } else {
+        Speech.speak("Server error");
+        Alert.alert("Payment Failed", "Server error. Please try again.");
+      }
+
+    } catch {
+      Speech.speak("Server error");
+      Alert.alert("Network Error", "Unable to connect to server.");
+    }
+  };
+
+  const retry = () => {
+    if (!activeRef.current) return;
+
+    Speech.speak("Please say amount or say back.", {
+      onDone: startListening,
+    });
+  };
+
+  const stopAll = async () => {
+    activeRef.current = false;
+
+    if (recordingRef.current) {
+      await recordingRef.current.stopAndUnloadAsync();
+      recordingRef.current = null;
+    }
+
+    clearTimeout(timeoutRef.current);
+    Speech.stop();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-
       <FlatList
         data={transactions}
         keyExtractor={item => item.id.toString()}
@@ -95,7 +261,6 @@ const PaymentPage = ({ route, navigation }: any) => {
         )}
       />
 
-      {/* INPUT BAR */}
       <Animated.View
         style={[
           styles.inputBar,
@@ -110,11 +275,13 @@ const PaymentPage = ({ route, navigation }: any) => {
           onChangeText={setAmount}
         />
 
-        <TouchableOpacity style={styles.payBtn} onPress={handleSendAmount}>
+        <TouchableOpacity
+          style={styles.payBtn}
+          onPress={() => handleSendAmount(parseFloat(amount))}
+        >
           <Text style={styles.payText}>Pay</Text>
         </TouchableOpacity>
       </Animated.View>
-
     </SafeAreaView>
   );
 };
@@ -122,10 +289,7 @@ const PaymentPage = ({ route, navigation }: any) => {
 export default PaymentPage;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
 
   transaction: {
     alignSelf: 'flex-end',
@@ -136,16 +300,8 @@ const styles = StyleSheet.create({
     maxWidth: '70%',
   },
 
-  amount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  date: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
+  amount: { fontSize: 16, fontWeight: '700' },
+  date: { fontSize: 12, color: '#666', marginTop: 4 },
 
   inputBar: {
     position: 'absolute',
@@ -157,6 +313,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderColor: '#ddd',
+    alignItems: 'center',
   },
 
   input: {
@@ -170,7 +327,7 @@ const styles = StyleSheet.create({
 
   payBtn: {
     backgroundColor: '#0B5ED7',
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
     borderRadius: 8,
     justifyContent: 'center',
   },

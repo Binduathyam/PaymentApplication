@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,35 +7,176 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-
 import transactions from '../data/transactions.json';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 type FilterType = 'all' | 'last3' | 'credited' | 'debited';
 
 export default function TransactionHistoryPage() {
+  const navigation = useNavigation<any>();
+
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  // 🔹 SEARCH + FILTER LOGIC
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const timeoutRef = useRef<any>(null);
+  const activeRef = useRef(true);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      activeRef.current = true;
+
+      const delay = setTimeout(() => {
+        speakIntro();
+      }, 300);
+
+      return () => {
+        clearTimeout(delay);
+        stopAll();
+      };
+    }, [])
+  );
+
+  const speakIntro = () => {
+    Speech.speak(
+      "Transaction history page opened. Say last three, credited, debited, search name or say back.",
+      { onDone: startListening }
+    );
+  };
+
+  const startListening = async () => {
+    if (!activeRef.current) return;
+
+    const permission = await Audio.requestPermissionsAsync();
+    if (!permission.granted) return;
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+    });
+
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+
+    recordingRef.current = recording;
+
+    timeoutRef.current = setTimeout(() => {
+      stopRecording();
+    }, 10000);
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+
+    clearTimeout(timeoutRef.current);
+
+    await recordingRef.current.stopAndUnloadAsync();
+    const uri = recordingRef.current.getURI();
+    recordingRef.current = null;
+
+    if (uri) sendToBackend(uri);
+  };
+
+  const sendToBackend = async (uri: string) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", {
+        uri,
+        name: "speech.m4a",
+        type: "audio/m4a",
+      } as any);
+
+      const res = await fetch("http://172.23.4.188:5000/stt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.status === "success") {
+        handleVoice(data.text.toLowerCase());
+      } else {
+        retry();
+      }
+    } catch {
+      retry();
+    }
+  };
+
+  const handleVoice = (text: string) => {
+    if (text.includes("back")) {
+      Speech.speak("Going back", {
+        onDone: () => navigation.goBack(),
+      });
+      return;
+    }
+
+    if (text.includes("last three")) {
+      setFilter('last3');
+      Speech.speak("Showing last three transactions", { onDone: startListening });
+      return;
+    }
+
+    if (text.includes("credited")) {
+      setFilter('credited');
+      Speech.speak("Showing credited transactions", { onDone: startListening });
+      return;
+    }
+
+    if (text.includes("debited")) {
+      setFilter('debited');
+      Speech.speak("Showing debited transactions", { onDone: startListening });
+      return;
+    }
+
+    if (text.includes("clear")) {
+      setFilter('all');
+      Speech.speak("Filter cleared", { onDone: startListening });
+      return;
+    }
+
+    setQuery(text);
+    Speech.speak(`Searching for ${text}`, { onDone: startListening });
+  };
+
+  const retry = () => {
+    Speech.speak("I did not understand. Please say again.", {
+      onDone: startListening,
+    });
+  };
+
+  const stopAll = async () => {
+    activeRef.current = false;
+    if (recordingRef.current) {
+      await recordingRef.current.stopAndUnloadAsync();
+      recordingRef.current = null;
+    }
+    clearTimeout(timeoutRef.current);
+    Speech.stop();
+  };
+
   const filtered = useMemo(() => {
     let data = [...transactions];
 
     const q = query.trim().toLowerCase();
     if (q) {
       data = data.filter(
-        (t) =>
+        (t: any) =>
           t.username.toLowerCase().includes(q) ||
           t.sendto.toLowerCase().includes(q)
       );
     }
 
     if (filter === 'credited') {
-      data = data.filter((t) => t.type === 'received');
+      data = data.filter((t: any) => t.type === 'received');
     }
 
     if (filter === 'debited') {
-      data = data.filter((t) => t.type === 'sent');
+      data = data.filter((t: any) => t.type === 'sent');
     }
 
     if (filter === 'last3') {
@@ -51,15 +192,6 @@ export default function TransactionHistoryPage() {
     return data;
   }, [query, filter]);
 
-  // 🔹 FILTER LABEL
-  const filterLabel = () => {
-    if (filter === 'last3') return 'Last 3 transactions';
-    if (filter === 'credited') return 'Credited';
-    if (filter === 'debited') return 'Debited';
-    return '';
-  };
-
-  // 🔹 TRANSACTION CARD
   const renderItem = ({ item }: any) => {
     const date = new Date(item.createdAt);
     const amountColor = item.type === 'received' ? '#2e7d32' : '#c62828';
@@ -77,7 +209,7 @@ export default function TransactionHistoryPage() {
             <Text style={styles.initials}>{initials}</Text>
           </View>
 
-          <View style={{ width: 16 }} />
+          <View style={{ width: 12 }} />
 
           <Text style={styles.username}>{item.sendto}</Text>
 
@@ -90,7 +222,7 @@ export default function TransactionHistoryPage() {
           <Text style={styles.typeText}>
             {item.type === 'sent' ? 'Sent' : 'Received'}
           </Text>
-          <Text style={styles.statusText}>Transaction Successful</Text>
+          <Text style={styles.statusText}>Successful</Text>
           <Text style={styles.dateText}>{date.toLocaleString()}</Text>
         </View>
       </View>
@@ -99,18 +231,14 @@ export default function TransactionHistoryPage() {
 
   return (
     <View style={styles.container}>
-      {/* SEARCH + FILTER */}
+
       <View style={styles.searchRow}>
         <TextInput
-          placeholder="Search by name or recipient"
+          placeholder="Search by name"
           value={query}
           onChangeText={setQuery}
           style={styles.searchInput}
         />
-
-        <TouchableOpacity style={styles.iconBtn}>
-          <Text style={styles.iconText}>🔍</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.filterBtnTop}
@@ -120,55 +248,31 @@ export default function TransactionHistoryPage() {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ SELECTED FILTER DISPLAY */}
-      {filter !== 'all' && (
-        <View style={styles.selectedFilterRow}>
-          <Text style={styles.selectedFilterText}>
-            Selected filter: {filterLabel()}
-          </Text>
-
-          <TouchableOpacity onPress={() => setFilter('all')}>
-            <Text style={styles.clearText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* FILTER OPTIONS */}
       {showFilters && (
         <View style={styles.filterBox}>
           <TouchableOpacity
             style={styles.filterItem}
-            onPress={() => {
-              setFilter('last3');
-              setShowFilters(false);
-            }}
+            onPress={() => { setFilter('last3'); setShowFilters(false); }}
           >
-            <Text style={styles.filterText}>Last 3 transactions</Text>
+            <Text>Last 3 Transactions</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.filterItem}
-            onPress={() => {
-              setFilter('credited');
-              setShowFilters(false);
-            }}
+            onPress={() => { setFilter('credited'); setShowFilters(false); }}
           >
-            <Text style={styles.filterText}>Credited</Text>
+            <Text>Credited</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.filterItem}
-            onPress={() => {
-              setFilter('debited');
-              setShowFilters(false);
-            }}
+            onPress={() => { setFilter('debited'); setShowFilters(false); }}
           >
-            <Text style={styles.filterText}>Debited</Text>
+            <Text>Debited</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* LIST */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id.toString()}
@@ -180,89 +284,57 @@ export default function TransactionHistoryPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
 
   searchRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     padding: 12,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
   },
+
   searchInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#fafafa',
-  },
-  iconBtn: { marginLeft: 6, padding: 6 },
-  iconText: { fontSize: 18 },
-
-  filterBtnTop: {
-    marginLeft: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  filterBtnText: { fontWeight: '600' },
-
-  selectedFilterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f1f3f6',
-    marginHorizontal: 12,
-    marginTop: 8,
-    padding: 8,
-    borderRadius: 6,
-  },
-  selectedFilterText: {
-    fontSize: 13,
-    color: '#333',
-  },
-  clearText: {
-    fontSize: 16,
-    color: '#555',
-  },
-
-  filterBox: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-    backgroundColor: '#fafafa',
-  },
-  filterItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 10,
     backgroundColor: '#fff',
   },
-  filterText: {
-    fontSize: 16,
-    fontWeight: '500',
+
+  filterBtnTop: {
+    marginLeft: 8,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#eee',
+  },
+
+  filterBtnText: { fontWeight: '600' },
+
+  filterBox: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+
+  filterItem: {
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 8,
   },
 
   card: {
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#eee',
   },
+
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
+
   profileCircle: {
     width: 44,
     height: 44,
@@ -271,16 +343,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  initials: { fontWeight: '700', color: '#333' },
-  username: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  amount: { fontSize: 16, fontWeight: '700' },
 
-  cardBottom: { flexDirection: 'row', alignItems: 'center' },
+  initials: { fontWeight: '700' },
+
+  username: { flex: 1, fontWeight: '600' },
+
+  amount: { fontWeight: '700' },
+
+  cardBottom: { flexDirection: 'row' },
+
   typeText: { flex: 1, color: '#666' },
+
   statusText: { flex: 1, textAlign: 'center', color: '#2e7d32' },
+
   dateText: { flex: 1, textAlign: 'right', color: '#888' },
-});
+}); 
