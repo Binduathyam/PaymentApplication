@@ -97,7 +97,7 @@ const HomePage = ({ route, navigation }: any) => {
         type: "audio/m4a",
       } as any);
 
-      const res = await fetch("http://172.23.4.188:5000/stt", {
+      const res = await fetch("http://10.230.164.188:5000/stt", {
         method: "POST",
         body: formData,
       });

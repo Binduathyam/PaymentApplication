@@ -7,7 +7,7 @@ const sendToBackend = async (uri: string) => {
       type: "audio/m4a",
     } as any);
 
-    const response = await fetch("http://172.23.4.188:5000/stt", {
+    const response = await fetch("http://10.230.164.188:5000/stt", {
       method: "POST",
       body: formData,
       headers: {

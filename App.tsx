@@ -10,12 +10,16 @@ import ProfilePage from './components/Profilepage';
 import BalancePage from './components/BalancePage';
 import ListOfContacts from './components/ListOfContacts';
 import PaymentPage from './components/PaymentPage';
+import VoicePinPage from './components/VoicePinPage'; // ✅ ADD THIS
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+
   return (
+
     <NavigationContainer>
+
       <Stack.Navigator initialRouteName="Login">
 
         <Stack.Screen
@@ -24,14 +28,42 @@ export default function App() {
           options={{ headerShown: false }}
         />
 
-        <Stack.Screen name="SignUp" component={SignUp} options={{ title: '' }} />
-        <Stack.Screen name="HomePage" component={HomePage} options={{ title: '' }} />
-        <Stack.Screen name="TransactionHistory" component={TransactionHistoryPage} options={{ title: '' }} />
-        <Stack.Screen name="profilePage" component={ProfilePage} options={{ title: '' }} />
-        <Stack.Screen name="Balance" component={BalancePage} options={{ title: '' }} />
-        <Stack.Screen name="listOfContacts" component={ListOfContacts} options={{ title: '' }} />
+        <Stack.Screen
+          name="SignUp"
+          component={SignUp}
+          options={{ title: '' }}
+        />
 
-        {/* ✅ PAYMENT PAGE HEADER FIX */}
+        <Stack.Screen
+          name="HomePage"
+          component={HomePage}
+          options={{ title: '' }}
+        />
+
+        <Stack.Screen
+          name="TransactionHistory"
+          component={TransactionHistoryPage}
+          options={{ title: '' }}
+        />
+
+        <Stack.Screen
+          name="profilePage"
+          component={ProfilePage}
+          options={{ title: '' }}
+        />
+
+        <Stack.Screen
+          name="Balance"
+          component={BalancePage}
+          options={{ title: '' }}
+        />
+
+        <Stack.Screen
+          name="listOfContacts"
+          component={ListOfContacts}
+          options={{ title: '' }}
+        />
+
         <Stack.Screen
           name="PaymentPage"
           component={PaymentPage}
@@ -45,7 +77,20 @@ export default function App() {
           }}
         />
 
+        {/* ✅ ADD THIS SCREEN */}
+        <Stack.Screen
+          name="VoicePinPage"
+          component={VoicePinPage}
+          options={{
+            title: '',
+            headerBackTitleVisible: false,
+          }}
+        />
+
       </Stack.Navigator>
+
     </NavigationContainer>
+
   );
+
 }
