@@ -171,19 +171,20 @@ User can access transaction history and balance information.
 ## Screenshots
 
 ### Login Screen
-![Login Screen](screenshots/login.jpeg)
+![Login Screen](screenshorts/login.jpeg)
 
 ### Home Screen
-![Home Screen](screenshots/home.jpeg)
+![Home Screen](screenshorts/home.jpeg)
 
 ### Voice Authentication
-![Voice Authentication](screenshots/voice_auth.jpeg)
+![Voice Authentication](screenshorts/voice_auth.jpeg)
 
 ### Payment Screen
-![Payment Screen](screenshots/payment.jpeg)
+![Payment Screen](screenshorts/payment.jpeg)
 
 ### Transaction History
-![Transaction History](screenshots/history.jpeg)
+![Transaction History](screenshorts/history.jpeg)
+
 ---
 
 ## Demo Video
